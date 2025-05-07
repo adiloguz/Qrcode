@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>QR Master</title>
+    <!-- 
+        For PWA:
+        <link rel="manifest" href="manifest.json">
+        <meta name="theme-color" content="#222222"> 
+        <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png"> 
+        <link rel="icon" type="image/png" sizes="192x192"  href="assets/icons/icon-192x192.png">
+    -->
+    <style>
+        /* --- CSS Reset & Base Styles --- */
+        :root {
+            --bg-color-light: #f4f6f8;
+            --text-color-light: #333;
+            --card-bg-light: #ffffff;
+            --primary-color-light: #007bff;
+            --primary-color-hover-light: #0056b3;
+            --border-color-light: #e0e0e0;
+            --shadow-light: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --icon-fill-light: #555;
+
+            --bg-color-dark: #1a1a1a;
+            --text-color-dark: #f0f0f0;
+            --card-bg-dark: #2c2c2c;
+            --primary-color-dark: #00aaff;
+            --primary-color-hover-dark: #0077cc;
+            --border-color-dark: #444;
+            --shadow-dark: 0 4px 15px rgba(0, 0, 0, 0.3);
+            --icon-fill-dark: #bbb;
+
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --border-radius: 12px;
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            --bg-color: var(--bg-color-light);
+            --text-color: var(--text-color-light);
+            --card-bg: var(--card-bg-light);
+            --primary-color: var(--primary-color-light);
+            --primary-color-hover: var(--primary-color-hover-light);
+            --border-color: var(--border-color-light);
+            --shadow: var(--shadow-light);
+            --icon-fill: var(--icon-fill-light);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: var(--bg-color-dark);
+            --text-color: var(--text-color-dark);
+            --card-bg: var(--card-bg-dark);
+            --primary-color: var(--primary-color-dark);
+            --primary-color-hover: var(--primary-color-hover-dark);
+            --border-color: var(--border-color-dark);
+            --shadow: var(--shadow-dark);
+            --icon-fill: var(--icon-fill-dark);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile */
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            font-size: 16px;
+            display: flex;
+            flex-direction: column;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 700px; /* Max width for larger screens */
+            margin: 0 auto; /* Center on larger screens */
+            overflow: hidden; /* Prevents main content from overflowing beyond nav */
+        }
+
+        /* --- Header --- */
+        .app-header {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            padding: 15px 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .app-header h1 {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        /* --- Main Content --- */
+        .app-main {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 80px; /* Space for bottom nav */
+        }
+
+        .app-section {
+            display: none; /* Hidden by default */
+        }
+
+        .app-section.active-section {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* --- Card --- */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: background-color var(--transition-speed), box-shadow var(--transition-speed);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        /* --- Form Elements & Buttons --- */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group input[type="text"],
+        .input-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: border-color var(--transition-speed), background-color var(--transition-speed);
+        }
+
+        .input-group input[type="text"]:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px var(--primary-color-hover-light);
+        }
+
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color var(--transition-speed), transform 0.1s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .button:hover, .button:focus {
+            background-color: var(--primary-color-hover);
+            outline: none;
+        }
+        .button:active {
+            transform: translateY(1px);
+        }
+
+        .button.secondary {
+            background-color: var(--card-bg);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+        .button.secondary:hover {
+            background-color: var(--bg-color);
+        }
+
+
+        .icon-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            fill: var(--icon-fill);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color var(--transition-speed);
+        }
+        .icon-button:hover {
+            background-color: rgba(128, 128, 128, 0.1);
+        }
+        .icon-button svg {
+            width: 24px;
+            height: 24px;
+            fill: inherit;
+        }
+
+        /* --- QR Code Generator --- */
+        #qrcode-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            min-height: 150px; /* Placeholder space */
+        }
+        #qrcode-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px; /* Slight rounding for the QR itself */
+        }
+        .generator-actions {
+            display: none; /* Hidden until QR generated */
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .generator-actions.visible {
+            display: flex;
+        }
+
+
+        /* --- QR Code Scanner --- */
+        #scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px; /* Limit video size */
+            margin: 0 auto 20px auto;
+            border: 2px solid var(--border-color);
+            border-radius: var(--border-radius);
+            overflow: hidden; /* Clip video to rounded corners */
+            background-color: #000; /* Black background while loading */
+        }
+        #scanner-video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        #scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5); /* Dark overlay while inactive/loading */
+            color: white;
+            text-align: center;
+            visibility: hidden; /* Shown by JS when needed */
+        }
+         #scan-overlay.visible { visibility: visible; }
+
+        .scan-feedback { /* For visual scanning target */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60%;
+            height: 0;
+            padding-bottom: 60%; /* Make it square */
+            transform: translate(-50%, -50%);
+            border: 3px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 0 0 100vmax rgba(0,0,0,0.3); /* Dim area outside the box */
+            pointer-events: none; /* Don't interfere with video */
+        }
+
+        #scan-result-container {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            word-break: break-all;
+        }
+        #scan-result-container p { margin: 0; }
+        #scan-result-container a {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+
+        .scanner-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+
+        /* --- History --- */
+        .history-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .history-item {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .history-item-content {
+            flex-grow: 1;
+            word-break: break-all;
+            font-size: 0.9em;
+        }
+        .history-item-content .type {
+            font-size: 0.8em;
+            color: var(--icon-fill); /* A muted color */
+            display: block;
+            margin-bottom: 3px;
+        }
+        .history-item-actions button {
+            padding: 6px 10px;
+            font-size: 0.8em;
+        }
+
+
+        /* --- Navigation --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-width: 700px; /* Match app-container */
+            margin: 0 auto; /* Center on larger screens */
+            background-color: var(--card-bg);
+            display: flex;
+            justify-content: space-around;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+            border-top: 1px solid var(--border-color);
+            z-index: 1000;
+        }
+        .nav-button {
+            flex-grow: 1;
+            background: none;
+            border: none;
+            padding: 12px 0;
+            font-size: 0.75em; /* Smaller text for nav items */
+            color: var(--icon-fill);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: color var(--transition-speed), background-color var(--transition-speed);
+            line-height: 1.2;
+        }
+        .nav-button svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--icon-fill);
+            margin-bottom: 4px;
+            transition: fill var(--transition-speed);
+        }
+        .nav-button:hover {
+            background-color: var(--bg-color);
+        }
+        .nav-button.active {
+            color: var(--primary-color);
+        }
+        .nav-button.active svg {
+            fill: var(--primary-color);
+        }
+
+        /* --- Spinner --- */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff; /* Spinner color on primary button */
+            width: 20px;
+            height: 20px;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #generate-btn .spinner { display: none; } /* Hidden by default */
+
+
+        /* --- Utility Classes --- */
+        .hidden {
+            display: none !important;
+        }
+        .sr-only { /* Screen-reader only */
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>QR Master</h1>
+            <button id="theme-toggle" class="icon-button" aria-label="Toggle Theme">
+                <!-- SVG icon will be injected by JS -->
+            </button>
+        </header>
+
+        <main class="app-main">
+            <!-- Generator Section -->
+            <section id="generator-section" class="app-section">
+                <div class="card">
+                    <h2>Generate QR Code</h2>
+                    <div class="input-group">
+                        <textarea id="qr-text" rows="3" placeholder="Enter text or URL"></textarea>
+                        <button id="generate-btn" class="button">
+                            <span>Generate</span>
+                            <div class="spinner"></div>
+                        </button>
+                    </div>
+                    <div id="qrcode-container">
+                        <p>Your QR code will appear here.</p>
+                    </div>
+                    <div class="generator-actions" id="generator-actions-panel">
+                        <button id="download-btn" class="button secondary">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                            Download PNG
+                        </button>
+                        <button id="share-btn-generator" class="button secondary">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 8.81C7.5 8.31 6.79 8 6 8c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3s3-1.34 3-3-1.34-3-3-3z"/></svg>
+                            Share
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Scanner Section -->
+            <section id="scanner-section" class="app-section">
+                <div class="card">
+                    <h2>Scan QR Code</h2>
+                    <div id="scanner-container">
+                        <video id="scanner-video" playsinline></video>
+                        <div id="scan-overlay" class="visible">
+                            <p>Point camera at a QR code</p>
+                            <div class="spinner" style="border-top-color: var(--primary-color);"></div> <!-- Scanner loading spinner -->
+                        </div>
+                         <div class="scan-feedback"></div>
+                    </div>
+                    <div id="scan-result-container" class="hidden">
+                        <h3>Scanned Content:</h3>
+                        <p id="scan-result-text"></p>
+                    </div>
+                     <div class="scanner-actions">
+                        <button id="start-scan-btn" class="button">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 1C7.03 1 3 5.03 3 10s4.03 9 9 9c.34 0 .67-.02 1-.05v-2.05c-.33.03-.66.05-1 .05-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7c0 .19-.01.38-.04.56l1.81.82C18.94 11.06 19 10.54 19 10c0-4.97-4.03-9-9-9zm0 5c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3zm5-8.72V2h-2v2.28c-.65-.19-1.32-.28-2-.28s-1.35.09-2 .28V2H9v2.28C8.16 4.81 7.41 5.49 6.81 6.29L5.39 4.87 4.08 6.28l1.46 1.46C5.02 8.37 4.63 9.16 4.37 10H2v2h2.37c.15.38.34.75.55 1.1L3.46 14.56l1.41 1.41L6.44 14.4c.5.63 1.08 1.18 1.72 1.6L7 18h2l1.23-1.64c.81.33 1.69.53 2.61.58L12 21.59l1.41-1.41L12 18.76c.38-.13.74-.29 1.08-.48l1.55 1.55 1.41-1.41-1.55-1.55c.42-.44.79-.93 1.09-1.45H22v-2h-2.66c-.07-.35-.17-.68-.29-1L21 9.7l-1.41-1.41-1.72 1.72c-.44-.49-.93-.9-1.46-1.23L17 6.12zM17 10c0 2.76-2.24 5-5 5V5c2.76 0 5 2.24 5 5z"/></svg>
+                            Start Scan
+                        </button>
+                         <button id="stop-scan-btn" class="button secondary hidden">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.59-13L12 10.59 8.41 7 7 8.41 10.59 12 7 15.59 8.41 17 12 13.41 15.59 17 17 15.59 13.41 12 17 8.41z"/></svg>
+                             Stop Scan
+                         </button>
+                    </div>
+                    <p id="scanner-error" class="error-message" style="color: red; margin-top: 10px;"></p>
+                </div>
+            </section>
+
+            <!-- History Section -->
+            <section id="history-section" class="app-section">
+                <div class="card">
+                    <h2>History</h2>
+                    <div id="history-controls" style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+                        <p id="no-history" class="hidden">No history yet.</p>
+                        <button id="clear-history-btn" class="button secondary" style="padding: 8px 12px; font-size:0.9em;">Clear History</button>
+                    </div>
+                    <ul id="history-list" class="history-list">
+                        <!-- History items will be populated here -->
+                    </ul>
+                </div>
+            </section>
+        </main>
+
+        <nav class="bottom-nav">
+            <button class="nav-button active" data-section="generator-section" aria-label="Generate QR">
+                <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zm2 2v2h2V6H6zm7-2h6v6h-6zm2 2v2h2V6h-2zM4 11h6v6H4zm2 2v2h2v-2H6zm11-3h-2V4h2v4zm0 1h2v2h-2v-2zm-3 3h6v6h-6zm2 2v2h2v-2h-2zM11 4h2v2h-2V4zm0 3h2v2h-2V7zm0 3h2v2h-2v-2zm0 3h2v2h-2v-2zm0 3h2v2h-2v-2z"/></svg>
+                <span>Generate</span>
+            </button>
+            <button class="nav-button" data-section="scanner-section" aria-label="Scan QR">
+                <svg viewBox="0 0 24 24"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8-12v8h8V3h-8zm6 6h-4V5h4v4zm0 10h2v-2h-2V3h-2v8h2v2zm-8 2h8v-8h-8v8zm2-6h4v4h-4v-4zM13 3h2v2h-2V3z"/></svg>
+                <span>Scan</span>
+            </button>
+            <button class="nav-button" data-section="history-section" aria-label="History">
+                <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z"/></svg>
+                <span>History</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- QR Code Libraries (place qrcode.min.js and jsQR.js in the same directory or update path) -->
+    <script src="qrcode.min.js"></script>
+    <script src="jsQR.js"></script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const themeToggleButton = document.getElementById('theme-toggle');
+        const appContainer = document.body; // Or a specific container if preferred for theme attribute
+
+        const navButtons = document.querySelectorAll('.nav-button');
+        const sections = document.querySelectorAll('.app-section');
+        
+        // Generator elements
+        const qrTextInput = document.getElementById('qr-text');
+        const generateBtn = document.getElementById('generate-btn');
+        const generateBtnText = generateBtn.querySelector('span');
+        const generateSpinner = generateBtn.querySelector('.spinner');
+        const qrcodeContainer = document.getElementById('qrcode-container');
+        const generatorActionsPanel = document.getElementById('generator-actions-panel');
+        const downloadBtn = document.getElementById('download-btn');
+        const shareBtnGenerator = document.getElementById('share-btn-generator');
+        
+        // Scanner elements
+        const scannerSection = document.getElementById('scanner-section');
+        const scannerVideo = document.getElementById('scanner-video');
+        const scanOverlay = document.getElementById('scan-overlay');
+        const scanOverlaySpinner = scanOverlay.querySelector('.spinner');
+        const scanResultContainer = document.getElementById('scan-result-container');
+        const scanResultText = document.getElementById('scan-result-text');
+        const startScanBtn = document.getElementById('start-scan-btn');
+        const stopScanBtn = document.getElementById('stop-scan-btn');
+        const scannerError = document.getElementById('scanner-error');
+
+        // History elements
+        const historyList = document.getElementById('history-list');
+        const noHistoryMsg = document.getElementById('no-history');
+        const clearHistoryBtn = document.getElementById('clear-history-btn');
+
+        let currentStream = null;
+        let qrCodeInstance = null; // To hold the QRCode.js instance
+        let animationFrameId = null;
+
+
+        // --- Theme Toggle ---
+        const sunIcon = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM12 9c1.65 0 3 1.35 3 3s-1.35 3-3 3-3-1.35-3-3 1.35-3 3-3zm0-7c-.55 0-1 .45-1 1v2c0 .55.45 1 1 1s1-.45 1-1V3c0-.55-.45-1-1-1zm0 18c-.55 0-1 .45-1 1v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1zm-8-8H2c-.55 0-1 .45-1 1s.45 1 1 1h2c.55 0 1-.45 1-1s-.45-1-1-1zm18 0h-2c-.55 0-1 .45-1 1s.45 1 1 1h2c.55 0 1-.45 1-1s-.45-1-1-1zM5.64 5.64c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.06 1.06c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41L5.64 5.64zm12.72 12.72c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.06 1.06c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41l-1.06-1.06zM5.64 18.36l-1.06-1.06c-.39-.39-.39-1.02 0-1.41s1.02-.39 1.41 0l1.06 1.06c.39.39.39 1.02 0 1.41s-1.02.39-1.41 0zm12.72-12.72l-1.06-1.06c-.39-.39-.39-1.02 0-1.41s1.02-.39 1.41 0l1.06 1.06c.39.39.39 1.02 0 1.41s-1.02.39-1.41 0z"/></svg>`;
+        const moonIcon = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.37 2.58A9.99 9.99 0 0 0 4 12c0 5.52 4.48 10 10 10 3.48 0 6.57-1.79 8.35-4.57-.5.14-1.02.22-1.55.22C13.69 17.65 9 13.71 9 8.31c0-.7.08-1.38.23-2.02l-.31-.19A9.92 9.92 0 0 0 9.37 2.58z"/></svg>`;
+
+        function applyTheme(theme) {
+            appContainer.setAttribute('data-theme', theme);
+            themeToggleButton.innerHTML = theme === 'dark' ? sunIcon : moonIcon;
+            localStorage.setItem('theme', theme);
+        }
+
+        themeToggleButton.addEventListener('click', () => {
+            const currentTheme = appContainer.getAttribute('data-theme');
+            applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        });
+
+        // Load saved theme or default to system preference
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (savedTheme) {
+            applyTheme(savedTheme);
+        } else {
+            applyTheme(prefersDark ? 'dark' : 'light');
+        }
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (!localStorage.getItem('theme')) { // Only if user hasn't set a preference
+                 applyTheme(e.matches ? 'dark' : 'light');
+            }
+        });
+
+        // --- Navigation ---
+        function switchSection(targetSectionId) {
+            sections.forEach(section => {
+                section.classList.toggle('active-section', section.id === targetSectionId);
+            });
+            navButtons.forEach(button => {
+                button.classList.toggle('active', button.dataset.section === targetSectionId);
+            });
+
+            // Special handling for scanner start/stop
+            if (targetSectionId !== 'scanner-section' && currentStream) {
+                stopScan(); // Stop camera if navigating away from scanner
+            }
+            if (targetSectionId === 'scanner-section' && !currentStream && startScanBtn.classList.contains('hidden')) {
+                // This case is if user navigates away and back quickly before stream fully stopped.
+                // No explicit action needed here, startScan will be called by button.
+            }
+             if (targetSectionId === 'history-section') {
+                loadHistory();
+            }
+        }
+
+        navButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                switchSection(button.dataset.section);
+            });
+        });
+        switchSection('generator-section'); // Default section
+
+        // --- QR Code Generator ---
+        generateBtn.addEventListener('click', () => {
+            const text = qrTextInput.value.trim();
+            if (!text) {
+                alert('Please enter text or URL to generate QR code.');
+                qrTextInput.focus();
+                return;
+            }
+
+            generateBtnText.style.display = 'none';
+            generateSpinner.style.display = 'block';
+            generateBtn.disabled = true;
+
+            // Clear previous QR
+            qrcodeContainer.innerHTML = '<p>Generating...</p>'; 
+            generatorActionsPanel.classList.remove('visible');
+
+            setTimeout(() => { // Simulate a bit of loading & allow UI to update
+                try {
+                    if (qrCodeInstance) {
+                        qrCodeInstance.clear(); // Clear previous QR if using makeCode
+                        qrCodeInstance.makeCode(text);
+                    } else {
+                         qrcodeContainer.innerHTML = ''; // Clear "Generating..."
+                        qrCodeInstance = new QRCode(qrcodeContainer, {
+                            text: text,
+                            width: Math.min(256, qrcodeContainer.offsetWidth - 30), // Responsive size
+                            height: Math.min(256, qrcodeContainer.offsetWidth - 30),
+                            colorDark: appContainer.getAttribute('data-theme') === 'dark' ? "#f0f0f0" : "#000000",
+                            colorLight: appContainer.getAttribute('data-theme') === 'dark' ? "#2c2c2c" : "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+                    }
+                    
+                    // Update colors if theme changed since last generation
+                     if (qrCodeInstance && qrCodeInstance.options) { // Check if qrcodejs object and has options
+                        qrCodeInstance.options.colorDark = appContainer.getAttribute('data-theme') === 'dark' ? "#e0e0e0" : "#111111";
+                        qrCodeInstance.options.colorLight = appContainer.getAttribute('data-theme') === 'dark' ? "#2c2c2c" : "#ffffff";
+                        // Note: qrcode.js doesn't have a simple redraw with new colors method. 
+                        // For simplicity, we rely on initial generation. If themes change often *during* use, 
+                        // you might need to qrCodeInstance.clear() and new QRCode(...) on theme change AND generation.
+                    }
+
+
+                    generatorActionsPanel.classList.add('visible');
+                    addToHistory({ type: 'generated', data: text, timestamp: new Date().toISOString() });
+                } catch (error) {
+                    console.error("QR Generation Error:", error);
+                    qrcodeContainer.innerHTML = '<p style="color:red;">Error generating QR code.</p>';
+                } finally {
+                    generateBtnText.style.display = 'inline';
+                    generateSpinner.style.display = 'none';
+                    generateBtn.disabled = false;
+                }
+            }, 100); // Short delay for spinner visibility
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const qrImg = qrcodeContainer.querySelector('img');
+            if (qrImg) {
+                const link = document.createElement('a');
+                link.href = qrImg.src;
+                link.download = 'qrcode.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert('Please generate a QR code first.');
+            }
+        });
+        
+        // Basic share button for generated QR
+        if ('share' in navigator) {
+            shareBtnGenerator.classList.remove('hidden');
+            shareBtnGenerator.addEventListener('click', async () => {
+                const qrImg = qrcodeContainer.querySelector('img');
+                const textToShare = qrTextInput.value.trim();
+                if (!qrImg || !textToShare) {
+                    alert('Please generate a QR code first.');
+                    return;
+                }
+                try {
+                    const response = await fetch(qrImg.src);
+                    const blob = await response.blob();
+                    const file = new File([blob], 'qrcode.png', { type: 'image/png' });
+                    
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                         await navigator.share({
+                            title: 'QR Code',
+                            text: `QR Code for: ${textToShare}`,
+                            files: [file],
+                        });
+                    } else if (navigator.canShare && navigator.canShare({text: textToShare})) {
+                        await navigator.share({ // Fallback to text share if image share not supported well
+                            title: 'QR Code Content',
+                            text: `QR Code for: ${textToShare}`,
+                            url: isURL(textToShare) ? textToShare : undefined
+                        });
+                    } else {
+                        alert('Sharing not fully supported, or no sharable content.');
+                    }
+                } catch (err) {
+                    console.error('Share error:', err);
+                    // alert('Error sharing QR code. You can download it instead.');
+                }
+            });
+        } else {
+            shareBtnGenerator.classList.add('hidden');
+        }
+
+
+        // --- QR Code Scanner ---
+        function startScan() {
+            scannerError.textContent = '';
+            scanResultContainer.classList.add('hidden');
+            scanOverlay.classList.add('visible');
+            scanOverlaySpinner.style.display = 'block';
+            scanOverlay.querySelector('p').textContent = 'Initializing camera...';
+            startScanBtn.classList.add('hidden');
+            stopScanBtn.classList.remove('hidden');
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(stream => {
+                    currentStream = stream;
+                    scannerVideo.srcObject = stream;
+                    scannerVideo.onloadedmetadata = () => {
+                        scannerVideo.play();
+                        scanOverlaySpinner.style.display = 'none';
+                        scanOverlay.querySelector('p').textContent = 'Point camera at a QR code';
+                        // scanOverlay.classList.remove('visible'); // Keep overlay semi-transparent or with targeting rect
+                        requestAnimationFrame(tick);
+                    };
+                })
+                .catch(err => {
+                    console.error("Camera access error:", err);
+                    scannerError.textContent = `Camera Error: ${err.name === 'NotAllowedError' ? 'Permission denied.' : err.message}. Try another browser or check permissions.`;
+                    scanOverlaySpinner.style.display = 'none';
+                    scanOverlay.querySelector('p').textContent = 'Camera access failed.';
+                    stopScanBtn.classList.add('hidden');
+                    startScanBtn.classList.remove('hidden');
+                });
+        }
+
+        function stopScan() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            if(animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            scannerVideo.srcObject = null; // Clear video source
+            scanOverlay.classList.add('visible');
+            scanOverlay.querySelector('p').textContent = 'Scanner stopped.';
+            scanOverlaySpinner.style.display = 'none';
+            stopScanBtn.classList.add('hidden');
+            startScanBtn.classList.remove('hidden');
+        }
+
+        function tick() {
+            if (!currentStream || scannerVideo.readyState !== scannerVideo.HAVE_ENOUGH_DATA) {
+                if (currentStream) animationFrameId = requestAnimationFrame(tick); // keep trying if stream exists
+                return;
+            }
+
+            const canvasElement = document.createElement('canvas');
+            const canvas = canvasElement.getContext('2d', { willReadFrequently: true });
+            
+            canvasElement.width = scannerVideo.videoWidth;
+            canvasElement.height = scannerVideo.videoHeight;
+            canvas.drawImage(scannerVideo, 0, 0, canvasElement.width, canvasElement.height);
+            
+            const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert", // "attemptBoth" or "dontInvert"
+            });
+
+            if (code) {
+                displayScanResult(code.data);
+                stopScan(); // Stop scanning after a successful scan
+                // Optionally, vibrate or play a sound
+                if (navigator.vibrate) navigator.vibrate(100); 
+            } else {
+                animationFrameId = requestAnimationFrame(tick);
+            }
+        }
+
+        function displayScanResult(data) {
+            scanResultText.innerHTML = ''; // Clear previous
+            if (isURL(data)) {
+                const link = document.createElement('a');
+                link.href = data;
+                link.textContent = data;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                scanResultText.appendChild(document.createTextNode("URL: "));
+                scanResultText.appendChild(link);
+            } else {
+                scanResultText.textContent = data;
+            }
+            scanResultContainer.classList.remove('hidden');
+            addToHistory({ type: 'scanned', data: data, timestamp: new Date().toISOString() });
+        }
+
+        function isURL(str) {
+            try {
+                new URL(str);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+        
+        startScanBtn.addEventListener('click', startScan);
+        stopScanBtn.addEventListener('click', stopScan);
+
+
+        // --- History ---
+        const HISTORY_KEY = 'qrMasterHistory';
+        const MAX_HISTORY_ITEMS = 20;
+
+        function getHistory() {
+            const history = localStorage.getItem(HISTORY_KEY);
+            return history ? JSON.parse(history) : [];
+        }
+
+        function saveHistory(history) {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        }
+
+        function addToHistory(item) {
+            let history = getHistory();
+            // Avoid duplicate entries if desired (e.g. same generated QR)
+            // history = history.filter(h => !(h.type === item.type && h.data === item.data));
+            history.unshift(item); // Add to the beginning
+            if (history.length > MAX_HISTORY_ITEMS) {
+                history.pop(); // Remove the oldest
+            }
+            saveHistory(history);
+            if (document.getElementById('history-section').classList.contains('active-section')) {
+                loadHistory(); // Refresh list if history view is active
+            }
+        }
+
+        function renderHistoryItem(item, index) {
+            const li = document.createElement('li');
+            li.classList.add('history-item');
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add('history-item-content');
+            
+            const typeSpan = document.createElement('span');
+            typeSpan.classList.add('type');
+            typeSpan.textContent = item.type === 'generated' ? 'Generated Code' : 'Scanned Code';
+            
+            const dataP = document.createElement('p');
+            const maxDisplayLength = 50;
+            dataP.textContent = item.data.length > maxDisplayLength ? item.data.substring(0, maxDisplayLength) + '...' : item.data;
+            dataP.title = item.data; // Full data on hover
+
+            contentDiv.appendChild(typeSpan);
+            contentDiv.appendChild(dataP);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.classList.add('history-item-actions');
+
+            const viewButton = document.createElement('button');
+            viewButton.classList.add('button', 'secondary');
+            viewButton.textContent = 'View';
+            viewButton.addEventListener('click', () => {
+                if (item.type === 'generated') {
+                    qrTextInput.value = item.data;
+                    switchSection('generator-section');
+                    generateBtn.click(); // Trigger generation
+                } else { // scanned
+                    displayScanResult(item.data);
+                    switchSection('scanner-section');
+                     // If scanner already open, result will show. If not, we show result then user can init scan.
+                }
+            });
+            
+            actionsDiv.appendChild(viewButton);
+            li.appendChild(contentDiv);
+            li.appendChild(actionsDiv);
+            return li;
+        }
+
+        function loadHistory() {
+            const history = getHistory();
+            historyList.innerHTML = ''; // Clear current list
+            if (history.length === 0) {
+                noHistoryMsg.classList.remove('hidden');
+                clearHistoryBtn.classList.add('hidden');
+            } else {
+                noHistoryMsg.classList.add('hidden');
+                clearHistoryBtn.classList.remove('hidden');
+                history.forEach((item, index) => {
+                    historyList.appendChild(renderHistoryItem(item, index));
+                });
+            }
+        }
+        
+        clearHistoryBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all history?')) {
+                saveHistory([]);
+                loadHistory();
+            }
+        });
+
+        // Initial load of history (if history section is active initially, though it's not)
+        if (document.getElementById('history-section').classList.contains('active-section')) {
+           loadHistory();
+        }
+
+    }); // End DOMContentLoaded
+    </script>
+</body>
+</html>
